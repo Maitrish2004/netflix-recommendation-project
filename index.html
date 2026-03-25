@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Movie Recommendation System</title>
+  <style>
+    html, body {
+      height: 100%;
+    }
+   body {
+  font-family: Arial;
+  color: #fff;
+  text-align: center;
+  margin:0;
+  padding:0;
+}
+
+/* LOGIN PAGE BACKGROUND */
+#login {
+  position: relative;
+  background: url("yt.jpg") no-repeat center center fixed;
+  background-size: cover;
+  min-height: 100vh;
+}
+
+/* APP PAGE BACKGROUND */
+#app {
+  position: relative;
+  background: url("bg.jpg") no-repeat center center fixed;
+  background-size: cover;
+  min-height: 100vh;
+}
+
+/* Dark overlay */
+#login::before,
+#app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: -1;
+}
+    h1 { color: #e50914; }
+    input { padding:10px; width:280px; border-radius:5px; border:none; margin:8px; }
+    button { padding:10px 20px; background:#e50914; color:#fff; border:none; cursor:pointer; border-radius:5px; margin-top:5px; }
+    .error { color:#ff4c4c; font-size:14px; margin-top:5px; }
+    .success { color:#00ff99; }
+    #app, #resetDiv { display:none; }
+    .movie-card { background:#222; margin:15px auto; padding:15px; max-width:420px; border-radius:10px; }
+    iframe { width:100%; height:215px; border-radius:8px; margin-top:10px; }
+    .section-title { margin-top:30px; color:#f5c518; }
+    .signout-btn{ position:absolute; top:20px; right:20px; background:#009624; }
+    .ai-movie-card {
+  border: 1px solid #ccc;
+  padding: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.ai-movie-card:hover {
+  background: #f2f2f2;
+}
+
+.ai-progress {
+  background: #ddd;
+  height: 8px;
+  margin-top: 4px;
+}
+
+.ai-bar {
+  background: #4caf50;
+  height: 100%;
+}
+.ai-movie-card {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-top: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  background: #222;
+  color: white;
+
+  /* Animation */
+  transform: scale(0.9);
+  opacity: 0;
+  animation: popUp 0.4s ease forwards;
+}
+
+@keyframes popUp {
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+  </style>
+</head>
+<body>
+
+<!-- 🔐 LOGIN PAGE -->
+<div id="login">
+  <h1>Login</h1>
+  <input type="text" id="username" placeholder="Username"><br>
+  <input type="password" id="password" placeholder="Password"><br>
+  <button onclick="login()">Sign In</button>
+  <div id="loginMsg"></div>
+  <p style="font-size:13px;color:#aaa;">
+    Password must contain Uppercase, Lowercase, Number & Special Character (min 8 chars)
+  </p>
+</div>
+
+<!-- 🔁 RESET PASSWORD -->
+<div id="resetDiv">
+  <h1>🔁 Reset Credentials</h1>
+  <input type="text" id="newUsername" placeholder="New Username"><br>
+  <input type="password" id="newPassword" placeholder="New Password"><br>
+  <button onclick="submitReset()">Reset Password</button>
+  <div id="resetMsg"></div>
+</div>
+
+<!-- 🎬 MOVIE APP -->
+<div id="app">
+  <button class="signout-btn" onclick="signOut()">Sign Out</button>
+  <h1>🎬 Movie Recommendation System</h1>
+
+  <!-- ⭐ GENRE BUTTONS (YOUR CODE – UNCHANGED) -->
+  <div style="margin:15px 0;">
+    <button onclick="getByGenre('Action')">Action</button>
+    <button onclick="getByGenre('Adventure')">Adventure</button>
+    <button onclick="getByGenre('Comedy')">Comedy</button>
+    <button onclick="getByGenre('Drama')">Drama</button>
+    <button onclick="getByGenre('Funny')">Funny</button>
+  </div>
+
+  <!-- 🤖 AI TEXT INPUT (NEW ADD – ONLY ADDITION) -->
+  <div style="margin:20px 0;">
+    <input type="text" id="aiText"
+           placeholder="Tell AI what you want (e.g. funny emotional)">
+    <br>
+    <button onclick="getAIRecommendation()">🤖 AI Recommend</button>
+  </div>
+
+  <input list="movieList" id="movieInput" placeholder="Select a movie">
+  <datalist id="movieList"></datalist>
+  <button onclick="getRecommendations()">Recommend</button>
+  <div id="results"></div>
+  <div id="historySection">
+    <h2 class="section-title">Recently watched</h2>
+    <div id="historyList"></div>
+  </div>
+  <!-- 🧠 AI Decision Recommendation (ADD ONLY) -->
+<div id="ai-decision-section">
+  <h3>🧠 AI Decision</h3>
+
+  <input type="text" id="aiDecisionInput"placeholder="I am foolish / I am sad"/>
+
+  <button onclick="aiDecisionRecommend()">Analyze</button>
+
+  <p id="aiDecisionReply"></p>
+
+  <div id="aiDecisionMovies"></div>
+  <iframe id ="player" style="width:60%; height:300px; margin-top:20px;">
+
+  </iframe>
+</div>
+
+
+  </div>
+
+<script>
+function isValidPassword(pwd) {
+  const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  return regex.test(pwd);
+}
+
+/* LOGIN */
+async function login() {
+  const user = username.value.trim();
+  const pass = password.value.trim();
+  const msg = document.getElementById("loginMsg");
+
+  if (!user || !pass) {
+    msg.innerHTML = `<p class="error">Username and Password required</p>`;
+    return;
+  }
+
+  if (!isValidPassword(pass)) {
+    msg.innerHTML = `<p class="error">❌ Password rule broken</p>`;
+    return;
+  }
+
+  const res = await fetch("/login", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({username:user,password:pass})
+  });
+
+  const data = await res.json();
+
+  if (data.status === "success") {
+    msg.innerHTML = `<p class="success">✅ Login Successful</p>`;
+    setTimeout(()=>{
+      document.getElementById("login").style.display="none";
+      document.getElementById("app").style.display="block";
+      loadMovies();
+      loadHistory();
+    }, 800);
+  } else {
+    if(data.forgot_allowed){
+      msg.innerHTML = `<p class="error">❌ Wrong Password</p>
+                       <button onclick="showReset()">Forgot Password?</button>`;
+    } else {
+      msg.innerHTML = `<p class="error">${data.message}</p>`;
+    }
+  }
+}
+
+/* RESET */
+function showReset() {
+  document.getElementById("login").style.display="none";
+  document.getElementById("resetDiv").style.display="block";
+}
+
+async function submitReset() {
+  const newUser = newUsername.value.trim();
+  const newPass = newPassword.value.trim();
+  const msg = document.getElementById("resetMsg");
+
+  if(!newUser || !newPass){
+    msg.innerHTML=`<p class="error">Username & Password required</p>`;
+    return;
+  }
+
+  if(!isValidPassword(newPass)){
+    msg.innerHTML=`<p class="error">❌ Password rule broken</p>`;
+    return;
+  }
+
+  const res = await fetch("/reset_password", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({username:newUser,password:newPass})
+  });
+
+  const data = await res.json();
+
+  if(data.status==="success"){
+    msg.innerHTML=`<p class="success">✅ Credentials reset. Please login.</p>`;
+    setTimeout(()=>{
+      document.getElementById("resetDiv").style.display="none";
+      document.getElementById("login").style.display="block";
+      username.value=newUser;
+      password.value=newPass;
+      msg.innerHTML="";
+    },1000);
+  }
+}
+
+/* SIGN OUT */
+function signOut(){
+  document.getElementById("app").style.display="none";
+  document.getElementById("login").style.display="block";
+  document.getElementById("results").innerHTML="";
+}
+
+/* LOAD MOVIES */
+async function loadMovies(){
+  const list=document.getElementById("movieList");
+  list.innerHTML="";
+  const res=await fetch("/movies");
+  const movies=await res.json();
+  movies.forEach(m=>{
+    const opt=document.createElement("option");
+    opt.value=m;
+    list.appendChild(opt);
+  });
+}
+
+/* MOVIE BASED */
+async function getRecommendations(){
+  const title=movieInput.value.trim();
+  const results=document.getElementById("results");
+  results.innerHTML="";
+  if(!title){ results.innerHTML=`<p class="error">Select a movie</p>`; return; }
+
+  const res=await fetch(`/recommend?title=${encodeURIComponent(title)}`);
+  const data=await res.json();
+  if(data.status!=="success"){ results.innerHTML=`<p class="error">${data.message}</p>`; return; }
+
+  results.innerHTML+=`<h2 class="section-title">🎯 Selected Movie</h2>`;
+  results.appendChild(createCard(data.data.selected));
+
+  results.innerHTML+=`<h2 class="section-title">🍿 Recommended Movies</h2>`;
+  data.data.recommended.forEach(m=>results.appendChild(createCard(m)));
+}
+
+/* GENRE BASED */
+async function getByGenre(genre){
+  const results=document.getElementById("results");
+  results.innerHTML=`<p class="success">🎯 ${genre} movies</p>`;
+
+  const res=await fetch(`/recommend_by_genre?genre=${encodeURIComponent(genre)}`);
+  const data=await res.json();
+
+  if(data.status!=="success"){
+    results.innerHTML=`<p class="error">${data.message}</p>`;
+    return;
+  }
+
+  results.innerHTML+=`<h2 class="section-title">🎬 Base Movie</h2>`;
+  results.appendChild(createCard(data.data.selected));
+
+  results.innerHTML+=`<h2 class="section-title">🍿 Recommended Movies</h2>`;
+  data.data.recommended.forEach(m=>results.appendChild(createCard(m)));
+}
+
+/* 🤖 AI NATURAL LANGUAGE */
+async function getAIRecommendation(){
+  const text=document.getElementById("aiText").value.trim();
+  const results=document.getElementById("results");
+  results.innerHTML="";
+
+  if(!text){
+    results.innerHTML=`<p class="error">Please tell AI what you want</p>`;
+    return;
+  }
+
+  const res=await fetch(`/ai_recommend?text=${encodeURIComponent(text)}`);
+  const data=await res.json();
+
+  if(data.status!=="success"){
+    results.innerHTML=`<p class="error">${data.message}</p>`;
+    return;
+  }
+
+  results.innerHTML+=`
+    <h2 class="section-title">🤖 AI Understood: ${data.ai_understanding.join(", ")}</h2>
+    <h2 class="section-title">🎬 Base Movie</h2>
+  `;
+  results.appendChild(createCard(data.data.selected));
+
+  results.innerHTML+=`<h2 class="section-title">🍿 Recommended Movies</h2>`;
+  data.data.recommended.forEach(m=>results.appendChild(createCard(m)));
+}
+
+function createCard(movie){
+  const card=document.createElement("div");
+  card.className="movie-card";
+  card.innerHTML=`<h3>${movie.title}</h3>
+    <p>${movie.genres?.split("|").join(", ")}</p>
+    ${movie.video_url
+      ? `<iframe src="${movie.video_url}?rel=0" allowfullscreen></iframe>`
+      : `<p style="color:#aaa">Video not available</p>`}`;
+  card.onclick = () => {
+    fetch("/add_history", {
+      method: "POST",
+      headers: {"Content-Type":
+"application/json"},
+body: JSON.stringify(movie)
+    });
+    loadHistory();
+  };
+  return card;
+}
+function aiDecisionRecommend() {
+  const text = document.getElementById("aiDecisionInput").value;
+
+  fetch(`/ai_decision_recommend?text=${encodeURIComponent(text)}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.status !== "success") {
+        document.getElementById("aiDecisionReply").innerText = data.message;
+        return;
+      }
+
+      document.getElementById("aiDecisionReply").innerText = data.ai_reply;
+
+      const container = document.getElementById("aiDecisionMovies");
+      container.innerHTML = "";
+
+      data.movies.forEach((movie, index) => 
+      {
+        const div = document.createElement("div");
+        div.className = "ai-movie-card";
+        div.style.animationDelay = '${index * 0.1}s';
+
+        div.innerHTML = `
+          <b>${movie.title}</b><br>
+          ${movie.genres}<br>
+          Match: ${movie.percentage}%
+          <div class="ai-progress">
+            <div class="ai-bar" style="width:${movie.percentage}%"></div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+        div.onclick = () => {
+          document.getElementById("player").src = movie.video_url;
+        };
+
+        container.appendChild(div);
+      
+    });
+}
+async function loadHistory(){
+  const res = await fetch("/get_history");
+  const data = await res.json();
+  const container = document.getElementById("historyList");
+  container.innerHTML = "";
+  data.history.forEach(m => {
+    const card = document.createElement("div");
+    card.className = "movie-card";
+    card.innerHTML = '<h4>${m.title}</h4><p>${m.genres}</p>';
+    container.appendChild(card);
+  });
+}
+</script>
+
+</body>
+</html>
